@@ -257,3 +257,25 @@ def PredItem_instantiate (reg,owner,name, arg, template_data):
 def PredItem_install (reg):
     zd.register_component (reg, zd.mkTemplate ("PredItem", None, PredItem_instantiate))
 
+
+### AltItem part - handles one step of alternation
+def AltItem_handler (eh, mev):
+    if mev.payload == "in":
+        zd.send (eh, "target", mev.payload, mev)
+    elif mev.payload == "target":
+        zd.send (eh, "out", mev.payload, mev)
+    else:
+        raise Exception ("internal error in AltItem_handler")
+
+def AltItem_reset_handler (eh):
+    pass
+
+def AltItem_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "AltItem")
+    return zd.make_leaf ( name_with_id, owner, None, arg, AltItem_handler, AltItem_reset_handler)
+
+# define template
+def AltItem_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("AltItem", None, AltItem_instantiate))
+
+    
