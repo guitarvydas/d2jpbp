@@ -207,7 +207,12 @@ def parse_set_input (s):
 
 ### Predicate that parses "a" ###
 def Preda_handler (eh, mev):
-    zd.send (eh, "out", str(parse_string ("a")), mev)
+    if mev.port == "":
+        zd.send (eh, "", str(parse_string ("a")), mev)
+    elif mev.port == "logop":
+        pass
+    else:
+        raise Exception (f"internal error in Preda_handler port={mev.port} payload={mev.payload.v}")
 
 def Preda_reset_handler (eh):
     pass
@@ -222,7 +227,12 @@ def Preda_install (reg):
 
 ### Predicate that parses b" ###
 def Predb_handler (eh, mev):
-    zd.send (eh, "out", str(parse_string ("b")), mev)
+    if mev.port == "":
+        zd.send (eh, "", str(parse_string ("b")), mev)
+    elif mev.port == "logop":
+        pass
+    else:
+        raise Exception (f"internal error in Predb_handler port={mev.port} payload={mev.payload.v}")
 
 def Predb_reset_handler (eh):
     pass
@@ -278,6 +288,7 @@ def AltItem_install (reg):
 ### AltGroup part - handles alternation chain of AltItems
 def AltGroup_handler (eh, mev):
     if mev.port == "in":
+        zd.send (eh, "logop", "or", mev)
         zd.send (eh, "target", mev.payload.v, mev)
     elif mev.port == "target":
         zd.send (eh, "out", mev.payload.v, mev)
