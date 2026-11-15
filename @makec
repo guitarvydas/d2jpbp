@@ -17,6 +17,7 @@
 
 # # use-case 1 (build a drawware tool that is like a compiler that transmogrifies a custom language to some existing language (say custom-to-Python)
 das2json "${TOOLNAME}.drawio"
+temp=temp.${RANDOM}
 python main.py "${TARGET}.${SRC_EXTENSION}" main "${TOOLNAME}.drawio.json" | splitoutputs
 checkfailure
 mv "out.${DEST_EXTENSION}" "${TARGET}.${DEST_EXTENSION}"

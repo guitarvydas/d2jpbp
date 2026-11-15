@@ -5,8 +5,8 @@ import kernel0d as zd
 ## Global String Buffer and builtin parsing primitives
 ######################################################
 
-debugprogress = True
-debugtrace = True
+debugprogress = False
+debugtrace = False
 
 def declare (bool):
     return bool
@@ -207,7 +207,7 @@ def parse_set_input (s):
 
 ### Predicate that parses "a" ###
 def Preda_handler (eh, mev):
-    zd.send (eh, "out", parse_string ("a"), mev)
+    zd.send (eh, "out", str(parse_string ("a")), mev)
 
 def Preda_reset_handler (eh):
     pass
@@ -223,7 +223,7 @@ def Preda_install (reg):
 
 ### Predicate that parses b" ###
 def Predb_handler (eh, mev):
-    zd.send (eh, "out", parse_string ("b"), mev)
+    zd.send (eh, "out", str(parse_string ("b")), mev)
 
 def Predb_reset_handler (eh):
     pass
@@ -239,10 +239,10 @@ def Predb_install (reg):
 
 ### PredItem part - invokes Preda or Predb (per schematic) ###
 def PredItem_handler (eh, mev):
-    if mev.payload == "in":
-        zd.send (eh, "target", mev.payload, mev)
-    elif mev.payload == "target":
-        zd.send (eh, "out", mev.payload, mev)
+    if mev.port== "in":
+        zd.send (eh, "target", mev.payload.v, mev)
+    elif mev.port == "target":
+        zd.send (eh, "out", mev.payload.v, mev)
     else:
         raise Exception ("internal error in PredItem_handler")
 
@@ -260,10 +260,10 @@ def PredItem_install (reg):
 
 ### AltItem part - handles one step of alternation
 def AltItem_handler (eh, mev):
-    if mev.payload == "in":
-        zd.send (eh, "target", mev.payload, mev)
-    elif mev.payload == "target":
-        zd.send (eh, "out", mev.payload, mev)
+    if mev.port == "in":
+        zd.send (eh, "target", mev.payload.v, mev)
+    elif mev.port == "target":
+        zd.send (eh, "out", mev.payload.v, mev)
     else:
         raise Exception ("internal error in AltItem_handler")
 
@@ -277,5 +277,67 @@ def AltItem_instantiate (reg,owner,name, arg, template_data):
 # define template
 def AltItem_install (reg):
     zd.register_component (reg, zd.mkTemplate ("AltItem", None, AltItem_instantiate))
+
+    
+### AltGroup part - handles alternation chain of AltItems
+def AltGroup_handler (eh, mev):
+    if mev.port == "in":
+        zd.send (eh, "target", mev.payload.v, mev)
+    elif mev.port == "target":
+        zd.send (eh, "out", mev.payload.v, mev)
+    else:
+        raise Exception ("internal error in AltGroup_handler")
+
+def AltGroup_reset_handler (eh):
+    pass
+
+def AltGroup_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "AltGroup")
+    return zd.make_leaf ( name_with_id, owner, None, arg, AltGroup_handler, AltGroup_reset_handler)
+
+# define template
+def AltGroup_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("AltGroup", None, AltGroup_instantiate))
+
+    
+### SeqGroup part - handles chain of SeqItem/PredItem/AltGroup
+def SeqGroup_handler (eh, mev):
+    if mev.port == "in":
+        zd.send (eh, "target", mev.payload.v, mev)
+    elif mev.port == "target":
+        zd.send (eh, "out", mev.payload.v, mev)
+    else:
+        raise Exception (f'internal error in SeqGroup_handler port={mev.port} payload={mev.payload.v}')
+
+def SeqGroup_reset_handler (eh):
+    pass
+
+def SeqGroup_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "SeqGroup")
+    return zd.make_leaf ( name_with_id, owner, None, arg, SeqGroup_handler, SeqGroup_reset_handler)
+
+# define template
+def SeqGroup_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("SeqGroup", None, SeqGroup_instantiate))
+
+
+### Initialize Buffer part - starts the parser by storing the string mev.payload.v into the buffer
+def InitBuffer_handler (eh, mev):
+    if mev.port == "":
+        parse_set_input (mev.payload.v)
+        zd.send (eh, "", "", mev)
+    else:
+        raise Exception (f'internal error in InitBuffer_handler port={mev.port} payload={mev.payload.v}')
+
+def InitBuffer_reset_handler (eh):
+    pass
+
+def InitBuffer_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "InitBuffer")
+    return zd.make_leaf ( name_with_id, owner, None, arg, InitBuffer_handler, InitBuffer_reset_handler)
+
+# define template
+def InitBuffer_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Initialize Buffer", None, InitBuffer_instantiate))
 
     
