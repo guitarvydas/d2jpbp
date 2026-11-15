@@ -5,8 +5,8 @@ import kernel0d as zd
 ## Global String Buffer and builtin parsing primitives
 ######################################################
 
-debugprogress = False
-debugtrace = False
+debugprogress = True
+debugtrace = True
 
 def declare (bool):
     return bool
@@ -58,8 +58,8 @@ class Indentation ():
         self.indent -= 1
     def pr (self):
         if debugprogress or debugtrace:
-            print (" " * self.indent, end="")
-            print (self.prefix, end="")
+            print (" " * self.indent, end="", file=sys.stderr)
+            print (self.prefix, end="", file=sys.stderr)
         pass
 
     
@@ -72,7 +72,7 @@ def parse_debug_prefix (s):
 
 def pbuffrepr (s):
     global buffer
-    print (f'{s}{buffer.buffrepr()}')
+    print (f'{s}{buffer.buffrepr()}', file=sys.stderr)
     
 def fail (s):
     global buffer
@@ -80,7 +80,7 @@ def fail (s):
     indent.out ()
     indent.pr ()
     if debugtrace:
-        print (f'fail {s}')
+        print (f'fail {s}', file=sys.stderr)
     buffer.rewind ()
     return False
 
@@ -90,9 +90,9 @@ def begin (s):
     indent.pr ()
     indent.ind ()
     if debugprogress:
-        print (f'begin {s} {buffer.buffrepr()}')
+        print (f'begin {s} {buffer.buffrepr()}', file=sys.stderr)
     elif debugtrace:
-        print (f'begin {s}')
+        print (f'begin {s}', file=sys.stderr)
     buffer.push_mark ()
 
 def accept (s):
@@ -102,7 +102,7 @@ def accept (s):
     indent.pr ()
     prev = buffer.pop_mark ()
     if debugprogress or debugtrace:
-        print (f'accept {s}')
+        print (f'accept {s}', file=sys.stderr)
     return True
 
 def debug (name, s):
@@ -110,9 +110,9 @@ def debug (name, s):
     indent.pr ()
     indent.ind ()
     if debugprogress:
-        print (f'{name} {s} {buffer.buffrepr()}')
+        print (f'{name} {s} {buffer.buffrepr()}', file=sys.stderr)
     elif debugtrace:
-        print (f'{name} {s}')
+        print (f'{name} {s}', file=sys.stderr)
 
 def parse_string (s):
     global buffer
@@ -217,7 +217,6 @@ def Preda_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "Predicate a")
     return zd.make_leaf ( name_with_id, owner, None, arg, Preda_handler, Preda_reset_handler)
 
-# define template
 def Preda_install (reg):
     zd.register_component (reg, zd.mkTemplate ("Preda", None, Preda_instantiate))
 
@@ -232,7 +231,6 @@ def Predb_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "Predicate b")
     return zd.make_leaf ( name_with_id, owner, None, arg, Predb_handler, Predb_reset_handler)
 
-# define template
 def Predb_install (reg):
     zd.register_component (reg, zd.mkTemplate ("Predb", None, Predb_instantiate))
 
@@ -253,7 +251,6 @@ def PredItem_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "PredItem")
     return zd.make_leaf ( name_with_id, owner, None, arg, PredItem_handler, PredItem_reset_handler)
 
-# define template
 def PredItem_install (reg):
     zd.register_component (reg, zd.mkTemplate ("PredItem", None, PredItem_instantiate))
 
@@ -274,7 +271,6 @@ def AltItem_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "AltItem")
     return zd.make_leaf ( name_with_id, owner, None, arg, AltItem_handler, AltItem_reset_handler)
 
-# define template
 def AltItem_install (reg):
     zd.register_component (reg, zd.mkTemplate ("AltItem", None, AltItem_instantiate))
 
@@ -295,7 +291,6 @@ def AltGroup_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "AltGroup")
     return zd.make_leaf ( name_with_id, owner, None, arg, AltGroup_handler, AltGroup_reset_handler)
 
-# define template
 def AltGroup_install (reg):
     zd.register_component (reg, zd.mkTemplate ("AltGroup", None, AltGroup_instantiate))
 
@@ -316,7 +311,6 @@ def SeqGroup_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "SeqGroup")
     return zd.make_leaf ( name_with_id, owner, None, arg, SeqGroup_handler, SeqGroup_reset_handler)
 
-# define template
 def SeqGroup_install (reg):
     zd.register_component (reg, zd.mkTemplate ("SeqGroup", None, SeqGroup_instantiate))
 
@@ -336,7 +330,6 @@ def InitBuffer_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "InitBuffer")
     return zd.make_leaf ( name_with_id, owner, None, arg, InitBuffer_handler, InitBuffer_reset_handler)
 
-# define template
 def InitBuffer_install (reg):
     zd.register_component (reg, zd.mkTemplate ("Initialize Buffer", None, InitBuffer_instantiate))
 

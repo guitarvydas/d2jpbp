@@ -1,1 +1,2 @@
-# empty
+#!/bin/bash
+cat test.out
