@@ -5,8 +5,8 @@ import kernel0d as zd
 ## Global String Buffer and builtin parsing primitives
 ######################################################
 
-debugprogress = True
-debugtrace = True
+debugprogress = False
+debugtrace = False
 
 def declare (bool):
     return bool
@@ -236,7 +236,7 @@ def stktop (stk):
 
 ### SeqGroup part - handles chain of Stepper or SeqGroup parts
 def SeqGroup_handler (eh, mev):
-    global target, more, logicalop, value
+    global target, more, logicalop, value, buffer
     if mev.port == "":
         stkpush (more, "") ; stkpush (logicalop, "and") ; eh.instance_data = "triggered"
         zd.send (eh, "tick", "", mev)
@@ -423,5 +423,24 @@ def PopValue_instantiate (reg,owner,name, arg, template_data):
 def PopValue_install (reg):
     zd.register_component (reg, zd.mkTemplate ("Pop Value", None, PopValue_instantiate))
     
+
+
+### Finalize by popping the value stack and sending the value as a string
+def debug_handler (eh, mev):
+    global myid, targetid, more, logicalop, value, buffer
+    if mev.port == "":
+        print (buffer.buffrepr (), file=sys.stderr)
+    else:
+        raise Exception (f'internal error in debug_handler port={mev.port} payload={mev.payload.v}')
+
+def debug_reset_handler (eh):
+    pass
+
+def debug_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "debug")
+    return zd.make_leaf ( name_with_id, owner, None, arg, debug_handler, debug_reset_handler)
+
+def debug_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("debug", None, debug_instantiate))
     
     
