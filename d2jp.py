@@ -5,8 +5,8 @@ import kernel0d as zd
 ## Global String Buffer and builtin parsing primitives
 ######################################################
 
-debugprogress = True
-debugtrace = True
+debugprogress = False
+debugtrace = False
 
 def declare (bool):
     return bool
@@ -205,98 +205,77 @@ def parse_set_input (s):
 
 ########## PBP Parts #############
 
-### Predicate that parses "a" ###
-def Preda_handler (eh, mev):
+### Environment database ###
+### a separate stack for each field of the environment
+### stkpush (stackvar, "...") push a string onto the stack
+### stkpop (stackvar) pop top item (a string) from the stack
+### read access via top(stackvar)
+
+### the Envstk is the only writer, all other access is read access
+
+### aside: this seems like explicit dynamic scoping. AFAICT, static scoping devolves into dynamic scoping by using
+### the return stack to store parameters, where the code accessing a parameter looks only at the top of the stack where the
+### provenance back to earlier history of the variable has been optimized away and is inaccessible (backlinks have been
+### optimized away in the effort to save space by not using lists with CDRs). Passing an expression to a parameter creates
+### a hidden temp variable
+
+target = []
+more = []
+logicalop = []
+value =[]
+
+def stkpush (stk, val):
+    stk.append (val)
+
+def stkpop (stk):
+    stk.pop ()
+
+def stktop (stk):
+    return stk [-1]
+
+
+### SeqGroup part - handles chain of Stepper or SeqGroup parts
+def SeqGroup_handler (eh, mev):
+    global target, more, logicalop, value, buffer
     if mev.port == "":
-        zd.send (eh, "", str(parse_string ("a")), mev)
-    elif mev.port == "logop":
-        pass
+        stkpush (more, "") ; stkpush (logicalop, "and") ; eh.instance_data = "triggered"
+        zd.send (eh, "tick", "", mev)
+    elif mev.port == "done":
+        stkpop (more) ; stkpop (logicalop)
+        zd.send (eh, "", "", mev)
     else:
-        raise Exception (f"internal error in Preda_handler port={mev.port} payload={mev.payload.v}")
+        raise Exception (f'internal error in SeqGroup_handler port={mev.port} payload={mev.payload.v}')
 
-def Preda_reset_handler (eh):
-    pass
+def SeqGroup_reset_handler (eh):
+    global target, more, logicalop, value
+    if eh.instance_data == "triggered":
+        stkpop (more) ; stkpop (logicalop)
+        eh.instance_data = None
 
+def SeqGroup_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "SeqGroup")
+    return zd.make_leaf ( name_with_id, owner, None, arg, SeqGroup_handler, SeqGroup_reset_handler)
 
-def Preda_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "Predicate a")
-    return zd.make_leaf ( name_with_id, owner, None, arg, Preda_handler, Preda_reset_handler)
+def SeqGroup_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("SeqGroup", None, SeqGroup_instantiate))
 
-def Preda_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("Preda", None, Preda_instantiate))
-
-### Predicate that parses b" ###
-def Predb_handler (eh, mev):
-    if mev.port == "":
-        zd.send (eh, "", str(parse_string ("b")), mev)
-    elif mev.port == "logop":
-        pass
-    else:
-        raise Exception (f"internal error in Predb_handler port={mev.port} payload={mev.payload.v}")
-
-def Predb_reset_handler (eh):
-    pass
-
-def Predb_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "Predicate b")
-    return zd.make_leaf ( name_with_id, owner, None, arg, Predb_handler, Predb_reset_handler)
-
-def Predb_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("Predb", None, Predb_instantiate))
-
-
-### PredItem part - invokes Preda or Predb (per schematic) ###
-def PredItem_handler (eh, mev):
-    if mev.port== "in":
-        zd.send (eh, "target", mev.payload.v, mev)
-    elif mev.port == "target":
-        zd.send (eh, "out", mev.payload.v, mev)
-    else:
-        raise Exception ("internal error in PredItem_handler")
-
-def PredItem_reset_handler (eh):
-    pass
-
-def PredItem_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "PredItem")
-    return zd.make_leaf ( name_with_id, owner, None, arg, PredItem_handler, PredItem_reset_handler)
-
-def PredItem_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("PredItem", None, PredItem_instantiate))
-
-
-### AltItem part - handles one step of alternation
-def AltItem_handler (eh, mev):
-    if mev.port == "in":
-        zd.send (eh, "target", mev.payload.v, mev)
-    elif mev.port == "target":
-        zd.send (eh, "out", mev.payload.v, mev)
-    else:
-        raise Exception ("internal error in AltItem_handler")
-
-def AltItem_reset_handler (eh):
-    pass
-
-def AltItem_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "AltItem")
-    return zd.make_leaf ( name_with_id, owner, None, arg, AltItem_handler, AltItem_reset_handler)
-
-def AltItem_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("AltItem", None, AltItem_instantiate))
-
-    
-### AltGroup part - handles alternation chain of AltItems
+### AltGroup part - handles chain of Stepper or AltGroup parts
 def AltGroup_handler (eh, mev):
-    if mev.port == "in":
-        zd.send (eh, "logop", "or", mev)
-        zd.send (eh, "target", mev.payload.v, mev)
-    elif mev.port == "target":
-        zd.send (eh, "out", mev.payload.v, mev)
+    global target, more, logicalop, value
+    if mev.port == "":
+        stkpush (more, "not") ; stkpush (logicalop, "or") ; eh.instance_data = "triggered"
+        zd.send (eh, "tick", "", mev)
+    elif mev.port == "done":
+        stkpop (more) ; stkpop (logicalop)
+        zd.send (eh, "", "", mev)
     else:
-        raise Exception ("internal error in AltGroup_handler")
+        raise Exception (f'internal error in AltGroup_handler port={mev.port} payload={mev.payload.v}')
 
 def AltGroup_reset_handler (eh):
-    pass
+    global target, more, logicalop, value
+    if eh.instance_data == "triggered":
+        stkpop (more) ; stkpop (logicalop)
+        eh.instance_data = None
 
 def AltGroup_instantiate (reg,owner,name, arg, template_data):
     name_with_id = zd.gensymbol ( "AltGroup")
@@ -305,25 +284,41 @@ def AltGroup_instantiate (reg,owner,name, arg, template_data):
 def AltGroup_install (reg):
     zd.register_component (reg, zd.mkTemplate ("AltGroup", None, AltGroup_instantiate))
 
-    
-### SeqGroup part - handles chain of SeqItem/PredItem/AltGroup
-def SeqGroup_handler (eh, mev):
-    if mev.port == "in":
-        zd.send (eh, "target", mev.payload.v, mev)
-    elif mev.port == "target":
-        zd.send (eh, "out", mev.payload.v, mev)
-    else:
-        raise Exception (f'internal error in SeqGroup_handler port={mev.port} payload={mev.payload.v}')
 
-def SeqGroup_reset_handler (eh):
+### Stepper - pure control flow - a single step in a sequence of steps
+### on "" send a tick to "tick", save myid push new target id
+### on "done" send a tick to "", pop myid and target id
+
+def Stepper_handler (eh, mev):
+    global myid, targetid, more, logicalop, value
+    if mev.port == "":
+        zd.send (eh, "tick", "", mev)
+    elif mev.port == "done":
+        bool = stktop (value)
+        if stktop (more) == "not":
+            if not bool:
+                zd.send (eh, "more", "", mev)
+            elif bool:
+                zd.send (eh, "skip", "", mev)
+        else:
+            if bool:
+                zd.send (eh, "more", "", mev)
+            elif bool:
+                zd.send (eh, "skip", "", mev)
+    else:
+        raise Exception (f"internal error in Stepper_handler port={mev.port} payload={mev.payload.v}")
+
+def Stepper_reset_handler (eh):
+    # nothing pushed, nothing to clean up
     pass
 
-def SeqGroup_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "SeqGroup")
-    return zd.make_leaf ( name_with_id, owner, None, arg, SeqGroup_handler, SeqGroup_reset_handler)
 
-def SeqGroup_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("SeqGroup", None, SeqGroup_instantiate))
+def Stepper_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "Stepper")
+    return zd.make_leaf ( name_with_id, owner, None, arg, Stepper_handler, Stepper_reset_handler)
+
+def Stepper_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Stepper", None, Stepper_instantiate))
 
 
 ### Initialize Buffer part - starts the parser by storing the string mev.payload.v into the buffer
@@ -344,4 +339,108 @@ def InitBuffer_instantiate (reg,owner,name, arg, template_data):
 def InitBuffer_install (reg):
     zd.register_component (reg, zd.mkTemplate ("Initialize Buffer", None, InitBuffer_instantiate))
 
+
+    
+### Parse an "a" from the buffer
+def ParseA_handler (eh, mev):
+    global myid, targetid, more, logicalop, value
+    if mev.port == "":
+        bool = parse_string ("a")
+        stkpush (value, bool)
+        zd.send (eh, "", "", mev)
+    else:
+        raise Exception (f'internal error in ParseA_handler port={mev.port} payload={mev.payload.v}')
+
+def ParseA_reset_handler (eh):
+    pass
+
+def ParseA_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "ParseA")
+    return zd.make_leaf ( name_with_id, owner, None, arg, ParseA_handler, ParseA_reset_handler)
+
+def ParseA_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Parse A", None, ParseA_instantiate))
+
+### Parse an "a" from the buffer
+def ParseB_handler (eh, mev):
+    global myid, targetid, more, logicalop, value
+    if mev.port == "":
+        bool = parse_string ("b")
+        stkpush (value, bool)
+        zd.send (eh, "", "", mev)
+    else:
+        raise Exception (f'internal error in ParseB_handler port={mev.port} payload={mev.payload.v}')
+
+def ParseB_reset_handler (eh):
+    pass
+
+def ParseB_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "ParseB")
+    return zd.make_leaf ( name_with_id, owner, None, arg, ParseB_handler, ParseB_reset_handler)
+
+def ParseB_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Parse B", None, ParseB_instantiate))
+
+### Parse an "a" from the buffer
+def ParseB_handler (eh, mev):
+    global myid, targetid, more, logicalop, value
+    if mev.port == "":
+        bool = parse_string ("b")
+        stkpush (value, bool)
+        zd.send (eh, "", "", mev)
+    else:
+        raise Exception (f'internal error in ParseB_handler port={mev.port} payload={mev.payload.v}')
+
+def ParseB_reset_handler (eh):
+    pass
+
+def ParseB_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "ParseB")
+    return zd.make_leaf ( name_with_id, owner, None, arg, ParseB_handler, ParseB_reset_handler)
+
+def ParseB_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Parse B", None, ParseB_instantiate))
+
+
+
+### Finalize by popping the value stack and sending the value as a string
+def PopValue_handler (eh, mev):
+    global myid, targetid, more, logicalop, value
+    if mev.port == "":
+        bool = stktop (value)
+        stkpop (value)
+        zd.send (eh, "", str (bool), mev)
+    else:
+        raise Exception (f'internal error in PopValue_handler port={mev.port} payload={mev.payload.v}')
+
+def PopValue_reset_handler (eh):
+    pass
+
+def PopValue_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "PopValue")
+    return zd.make_leaf ( name_with_id, owner, None, arg, PopValue_handler, PopValue_reset_handler)
+
+def PopValue_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("Pop Value", None, PopValue_instantiate))
+    
+
+
+### Finalize by popping the value stack and sending the value as a string
+def debug_handler (eh, mev):
+    global myid, targetid, more, logicalop, value, buffer
+    if mev.port == "":
+        print (buffer.buffrepr (), file=sys.stderr)
+    else:
+        raise Exception (f'internal error in debug_handler port={mev.port} payload={mev.payload.v}')
+
+def debug_reset_handler (eh):
+    pass
+
+def debug_instantiate (reg,owner,name, arg, template_data):
+    name_with_id = zd.gensymbol ( "debug")
+    return zd.make_leaf ( name_with_id, owner, None, arg, debug_handler, debug_reset_handler)
+
+def debug_install (reg):
+    zd.register_component (reg, zd.mkTemplate ("debug", None, debug_instantiate))
+    
     
