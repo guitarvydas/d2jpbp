@@ -6,8 +6,6 @@ from d2jp import *
 
 [palette, env] = zd.initialize_from_files (sys.argv[3:])
 # perform all custom installs
-SeqGroup_install (palette)
-AltGroup_install (palette)
 TF_install (palette)
 InitBuffer_install (palette)
 ParseA_install (palette)

@@ -221,57 +221,6 @@ def stktop (stk):
     return stk [-1]
 
 
-### SeqGroup part - handles chain of Stepper or SeqGroup parts
-def SeqGroup_handler (eh, mev):
-    global target, more, logicalop,  buffer
-    if mev.port == "":
-        stkpush (more, "") ; stkpush (logicalop, "and") ; eh.instance_data = "triggered"
-        zd.send (eh, "tick", "", mev)
-    elif mev.port == "done":
-        stkpop (more) ; stkpop (logicalop)
-        zd.send (eh, "", mev.payload.v, mev)
-    else:
-        raise Exception (f'internal error in SeqGroup_handler port={mev.port} payload={mev.payload.v}')
-
-def SeqGroup_reset_handler (eh):
-    global target, more, logicalop
-    if eh.instance_data == "triggered":
-        stkpop (more) ; stkpop (logicalop)
-        eh.instance_data = None
-
-def SeqGroup_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "SeqGroup")
-    return zd.make_leaf ( name_with_id, owner, None, arg, SeqGroup_handler, SeqGroup_reset_handler)
-
-def SeqGroup_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("SeqGroup", None, SeqGroup_instantiate))
-
-### AltGroup part - handles chain of Stepper or AltGroup parts
-def AltGroup_handler (eh, mev):
-    global target, more, logicalop
-    if mev.port == "":
-        stkpush (more, "not") ; stkpush (logicalop, "or") ; eh.instance_data = "triggered"
-        zd.send (eh, "tick", "", mev)
-    elif mev.port == "done":
-        stkpop (more) ; stkpop (logicalop)
-        zd.send (eh, "", mev.payload.v, mev)
-    else:
-        raise Exception (f'internal error in AltGroup_handler port={mev.port} payload={mev.payload.v}')
-
-def AltGroup_reset_handler (eh):
-    global target, more, logicalop
-    if eh.instance_data == "triggered":
-        stkpop (more) ; stkpop (logicalop)
-        eh.instance_data = None
-
-def AltGroup_instantiate (reg,owner,name, arg, template_data):
-    name_with_id = zd.gensymbol ( "AltGroup")
-    return zd.make_leaf ( name_with_id, owner, None, arg, AltGroup_handler, AltGroup_reset_handler)
-
-def AltGroup_install (reg):
-    zd.register_component (reg, zd.mkTemplate ("AltGroup", None, AltGroup_instantiate))
-
-
 
 ### Initialize Buffer part - starts the parser by storing the string mev.payload.v into the buffer
 def InitBuffer_handler (eh, mev):
